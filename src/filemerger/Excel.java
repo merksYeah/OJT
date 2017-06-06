@@ -85,7 +85,15 @@ public class Excel {
                 form.setType(file.getName().substring(0, 3));
                 form.setId(id);
                 Workbook workbook = WorkbookFactory.create(file, passwords.get(id));
+                Sheet firstSheet = workbook.getSheetAt(0);
                 setPersonalCells(form, workbook);
+                for (int i = 18; i < 49; i++) {
+                    Row row = firstSheet.getRow(i);
+                    System.out.println(row.getCell(9).getNumericCellValue());
+                    /*for(int j = 9; j < 21; j++){
+                        
+                    }*/
+                }
 
             } catch (IOException | InvalidFormatException | EncryptedDocumentException ex) {
                 System.out.println("hello");
@@ -93,7 +101,7 @@ public class Excel {
         }
         return forms;
     }
-    
+
     //function to get personal information
     public static void setPersonalCells(Form form, Workbook workbook) {
         Sheet firstSheet = workbook.getSheetAt(0);
@@ -132,6 +140,13 @@ public class Excel {
                     form.setDateSubmitted("");
                 }
                 break;
+        }
+    }
+    
+    public static void setNumericCells(int index){
+        switch(index){
+            case 9:
+                
         }
     }
 
