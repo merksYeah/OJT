@@ -101,8 +101,13 @@ public class Controller {
     }
 
     private void extractFiles() {
-        XSSFWorkbook workbook = Excel.getSummaryFile();
-        Excel.getClaimsData(model.getPasswords(), model.getFiles());
+        try {
+            XSSFWorkbook summaryWorkbook = Excel.getSummaryFile();
+            model.setForms(Excel.getClaimsData(model.getPasswords(), model.getFiles()));
+            Excel.createSummaryFile(summaryWorkbook,model.getForms(),view);
+        } catch (IOException ex) {
+            Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, null, ex);
+        }
         
     }
 }

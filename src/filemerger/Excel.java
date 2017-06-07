@@ -6,15 +6,19 @@
 package filemerger;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.apache.poi.EncryptedDocumentException;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -27,7 +31,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
  * @author mmercado
  */
 public class Excel {
-    
+
     public static XSSFWorkbook getSummaryFile() {
         String[] headers = {"ID Number", "Last Name", "First Name", "Position",
             "Month", "Year", "Department", "Product", "Date Submitted",
@@ -39,21 +43,27 @@ public class Excel {
             "Count OT Days", "Count Day", "", "", "Form Version", "", "ID",
             "OT Weekday", "OT Sunday", "OT SH", "OT LH", "ND", "Count SA", "SA",
             "Count M+T", "M+T"};
-        
+
         String[] edHeaders = {"ID Number", "Last Name", "First Name", "Position",
-            "Month", "Year", "Department", "Product",
+            "Month Year", "Department", "Product",
             "Date Submitted", "Approving Manager",
-            "Date Approved", "Count Day", "", "",
-            "Form Version", "", "ID Number", "Last Name", "First Name",
-            "Position	Month", "Year", "Department", "Product",
+            "Date Approved", "Count Day", "", "", "Form Version",
+            "", "ID Number", "Last Name", "First Name",
+            "Position", "Month", "Year", "Department", "Product",
             "Count Day"};
-        
+
         XSSFWorkbook workbook = new XSSFWorkbook();
-        workbook.createSheet("OT");
-        workbook.createSheet("SA");
-        workbook.createSheet("AHS");
-        workbook.createSheet("ED");
-        for (int i = 0; i < 4; i++) {
+
+        workbook.createSheet(
+                "OT");
+        workbook.createSheet(
+                "SA");
+        workbook.createSheet(
+                "AHS");
+        workbook.createSheet(
+                "ED");
+        for (int i = 0;
+                i < 4; i++) {
             XSSFSheet sheet = workbook.getSheetAt(i);
             //if sheet is not ED sheet
             if (i < 3) {
@@ -67,37 +77,49 @@ public class Excel {
                 Row row = sheet.createRow(0);
                 for (int j = 0; j < edHeaders.length; j++) {
                     Cell cell = row.createCell(j);
-                    cell.setCellValue(headers[j]);
+                    cell.setCellValue(edHeaders[j]);
                     sheet.setColumnWidth(j, 6000);
                 }
             }
-            
+
         }
         return workbook;
-        
+
     }
-    
+
     public static ArrayList<Form> getClaimsData(HashMap<String, String> passwords, File[] files) {
         ArrayList<Form> forms = new ArrayList();
         for (File file : files) {
             try {
                 Form form = new Form();
-                String id = file.getName().substring(file.getName().length() - 10, file.getName().length() - 5);
-                form.setType(file.getName().substring(0, 3));
+                String id = file.getName();
+                id = id.substring(0, id.length() - 5);
+                id = id.substring(id.length() - 5);
+                form.setType(file.getName().substring(0, 3).trim());
                 form.setId(id);
                 Workbook workbook = WorkbookFactory.create(file, passwords.get(id));
                 Sheet firstSheet = workbook.getSheetAt(0);
-                if(firstSheet.getProtect()){
+                if (firstSheet.getProtect()) {
                     form.setHack("ok");
-                }else{
+                } else {
                     form.setHack("tampered");
                 }
                 setPersonalCells(form, workbook);
                 for (int rowIndex = 18; rowIndex < 49; rowIndex++) {
                     Row row = firstSheet.getRow(rowIndex);
-                    if (row.getCell(1).getNumericCellValue() > 0) {
-                        form.setCountDay(form.getCountDay() + 1);
+                    switch (row.getCell(1).getCellTypeEnum()) {
+                        case STRING:
+                            if (!row.getCell(1).getStringCellValue().equals("")) {
+                                form.setCountDay(form.getCountDay() + 1);
+                            }
+                            break;
+                        case NUMERIC:
+                            if (row.getCell(1).getNumericCellValue() > 0) {
+                                form.setCountDay(form.getCountDay() + 1);
+                            }
+                            break;
                     }
+
                     for (int cellIndex = 9; cellIndex < 21; cellIndex++) {
                         setNumericCells(cellIndex, row.getCell(cellIndex), form);
                     }
@@ -105,11 +127,113 @@ public class Excel {
                 Row row = firstSheet.getRow(51);
                 String formVersion = row.getCell(1).getStringCellValue();
                 form.setFormVersion(formVersion.substring(formVersion.length() - 10));
-            } catch (IOException | InvalidFormatException | EncryptedDocumentException ex) {
+                forms.add(form);
+                workbook.close();
+            } catch (EncryptedDocumentException ex) {
                 System.out.println("hello");
+
+            } catch (IOException ex) {
+                Logger.getLogger(Excel.class
+                        .getName()).log(Level.SEVERE, null, ex);
+
+            } catch (InvalidFormatException ex) {
+                Logger.getLogger(Excel.class
+                        .getName()).log(Level.SEVERE, null, ex);
             }
         }
         return forms;
+    }
+
+    public static void createSummaryFile(Workbook workbook, ArrayList<Form> forms, View view) throws FileNotFoundException, IOException {
+        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HHmmss");
+        Date date = new Date();
+        String filename = dateFormat.format(date);
+        FileOutputStream fileOutputStream = new FileOutputStream(filename + ".xlsx");
+        HashMap<String, Integer> rowNums = new HashMap();
+        initRowMap(rowNums);
+        view.getProgressBar().setMinimum(0);
+        view.getProgressBar().setMaximum(forms.size());
+        int progress = 0;
+        for (Form form : forms) {
+            view.getProgressBar().setValue(progress);
+            Sheet sheet = workbook.getSheet(form.getType());
+            Row row = sheet.createRow(rowNums.get(form.getType()));
+            int rowNum = rowNums.get(form.getType());
+            int cellNum = 0;
+            if (form.getType().equals("ED")) {
+                row.createCell(cellNum++).setCellValue(form.getId());
+                row.createCell(cellNum++).setCellValue(form.getLastName());
+                row.createCell(cellNum++).setCellValue(form.getFirstName());
+                row.createCell(cellNum++).setCellValue(form.getPosition());
+                row.createCell(cellNum++).setCellValue(form.getMonth());
+                row.createCell(cellNum++).setCellValue(form.getYear());
+                row.createCell(cellNum++).setCellValue(form.getDepartment());
+                row.createCell(cellNum++).setCellValue(form.getProduct());
+                row.createCell(cellNum++).setCellValue(form.getDateSubmitted());
+                row.createCell(cellNum++).setCellValue(form.getApprovingManager());
+                row.createCell(cellNum++).setCellValue(form.getDateApproved());
+                row.createCell(cellNum++).setCellValue(form.getCountDay());
+                row.createCell(cellNum++).setCellValue("hello");
+                row.createCell(cellNum++).setCellValue(form.getHack());
+                row.createCell(cellNum++).setCellValue(form.getFormVersion());
+                row.createCell(cellNum++).setCellFormula("A" + (rowNum + 1));
+                row.createCell(cellNum++).setCellFormula("B" + (rowNum + 1));
+                row.createCell(cellNum++).setCellFormula("C" + (rowNum + 1));
+                row.createCell(cellNum++).setCellFormula("D" + (rowNum + 1));
+                row.createCell(cellNum++).setCellFormula("E" + (rowNum + 1));
+                row.createCell(cellNum++).setCellFormula("F" + (rowNum + 1));
+                row.createCell(cellNum++).setCellFormula("G" + (rowNum + 1));
+                row.createCell(cellNum++).setCellFormula("H" + (rowNum + 1));
+                row.createCell(cellNum++).setCellFormula("L" + (rowNum + 1));
+                rowNums.put(form.getType(), ++rowNum);
+                progress++;
+            } else {
+                row.createCell(cellNum++).setCellValue(form.getId());
+                row.createCell(cellNum++).setCellValue(form.getLastName());
+                row.createCell(cellNum++).setCellValue(form.getFirstName());
+                row.createCell(cellNum++).setCellValue(form.getPosition());
+                row.createCell(cellNum++).setCellValue(form.getMonth());
+                row.createCell(cellNum++).setCellValue(form.getYear());
+                row.createCell(cellNum++).setCellValue(form.getDepartment());
+                row.createCell(cellNum++).setCellValue(form.getProduct());
+                row.createCell(cellNum++).setCellValue(form.getDateSubmitted());
+                row.createCell(cellNum++).setCellValue(form.getApprovingManager());
+                row.createCell(cellNum++).setCellValue(form.getDateApproved());
+                row.createCell(cellNum++).setCellValue(form.getWeekDay());
+                row.createCell(cellNum++).setCellValue(form.getSaturday());
+                row.createCell(cellNum++).setCellValue(form.getRestDay());
+                row.createCell(cellNum++).setCellValue(form.getNoneWorkingDay());
+                row.createCell(cellNum++).setCellValue(form.getLegalHoliday());
+                row.createCell(cellNum++).setCellValue(form.getShiftAllowance());
+                row.createCell(cellNum++).setCellValue(form.getNightDifferential());
+                row.createCell(cellNum++).setCellValue(form.getMeal());
+                row.createCell(cellNum++).setCellValue(form.getTransportation());
+                row.createCell(cellNum++).setCellValue(form.getOthers());
+                row.createCell(cellNum++).setCellValue(form.getCountMeal());
+                row.createCell(cellNum++).setCellValue(form.getCountTransportation());
+                row.createCell(cellNum++).setCellValue(form.getCountShiftAllowance());
+                row.createCell(cellNum++).setCellValue(form.getCountOTDays());
+                row.createCell(cellNum++).setCellValue(form.getCountDay());
+                row.createCell(cellNum++).setCellValue("hello");
+                row.createCell(cellNum++).setCellValue(form.getHack());
+                row.createCell(cellNum++).setCellValue(form.getFormVersion());
+                cellNum++;
+                row.createCell(cellNum++).setCellFormula("A" + (rowNum + 1));
+                row.createCell(cellNum++).setCellFormula("SUM(L" + (rowNum + 1) + ":M" + (rowNum + 1) + ")");
+                row.createCell(cellNum++).setCellFormula("SUM(N" + (rowNum + 1) + ")");
+                row.createCell(cellNum++).setCellFormula("SUM(O" + (rowNum + 1) + ")");
+                row.createCell(cellNum++).setCellFormula("SUM(P" + (rowNum + 1) + ")");
+                row.createCell(cellNum++).setCellFormula("R" + (rowNum + 1));
+                row.createCell(cellNum++).setCellFormula("X" + (rowNum + 1));
+                row.createCell(cellNum++).setCellFormula("Q" + (rowNum + 1));
+                row.createCell(cellNum++).setCellFormula("SUM(V" + (rowNum + 1) + ":W" + (rowNum + 1) + ")");
+                row.createCell(cellNum++).setCellFormula("SUM(S" + (rowNum + 1) + ":T" + (rowNum + 1) + ")");
+                rowNums.put(form.getType(), ++rowNum);
+                progress++;
+            }
+        }
+        workbook.write(fileOutputStream);
+        workbook.close();
     }
 
     //function to get personal information
@@ -124,35 +248,55 @@ public class Excel {
         row = firstSheet.getRow(12);
         form.setDepartment(row.getCell(2).getStringCellValue());
         form.setProduct(row.getCell(5).getStringCellValue());
-        setDateCells(row.getCell(8), form);
+        setDateCells(row.getCell(8), form, 8);
         if (row.getCell(11).getStringCellValue() != null) {
             form.setApprovingManager(row.getCell(11).getStringCellValue());
         } else {
             form.setApprovingManager("");
         }
-        setDateCells(row.getCell(17), form);
+        setDateCells(row.getCell(17), form, 17);
     }
-    
-    public static void setDateCells(Cell cell, Form form) {
+
+    public static void setDateCells(Cell cell, Form form, int index) {
         DateFormat df = new SimpleDateFormat("MM-dd-yyyy");
         switch (cell.getCellTypeEnum()) {
             case STRING:
                 if (cell.getStringCellValue() != null) {
-                    form.setDateSubmitted(cell.getStringCellValue());
+                    if (index == 8) {
+                        form.setDateSubmitted(cell.getStringCellValue());
+                    } else {
+                        form.setDateApproved(cell.getStringCellValue());
+                    }
+
                 } else {
-                    form.setDateSubmitted("");
+                    if (index == 8) {
+                        form.setDateSubmitted("");
+                    } else {
+                        form.setDateApproved("");
+                    }
+
                 }
                 break;
             case NUMERIC:
                 if (cell.getDateCellValue() != null) {
-                    form.setDateSubmitted(df.format(cell.getDateCellValue()));
+                    if (index == 8) {
+                        form.setDateSubmitted(df.format(cell.getDateCellValue()));
+                    } else {
+                        form.setDateApproved(df.format(cell.getDateCellValue()));
+                    }
+
                 } else {
-                    form.setDateSubmitted("");
+                    if (index == 8) {
+                        form.setDateSubmitted("");
+                    } else {
+                        form.setDateApproved("");
+                    }
+
                 }
                 break;
         }
     }
-    
+
     public static void setNumericCells(int index, Cell cell, Form form) {
         switch (index) {
             case 9:
@@ -198,11 +342,12 @@ public class Excel {
                     case NUMERIC:
                         form.setShiftAllowance(form.getShiftAllowance() + cell.getNumericCellValue());
                         if (cell.getNumericCellValue() > 0 && !form.isCheckShiftAllowance()) {
-                            form.setCountMeal(form.getCountShiftAllowance() + 1);
-                            form.setCheckMeal(true);
+                            form.setCountShiftAllowance(form.getCountShiftAllowance() + 1);
+                            form.setCheckShiftAllowance(true);
                         }
                         break;
                 }
+                break;
             case 16:
                 switch (cell.getCachedFormulaResultTypeEnum()) {
                     case ERROR:
@@ -212,7 +357,9 @@ public class Excel {
                         form.setNightDifferential(form.getNightDifferential() + cell.getNumericCellValue());
                         break;
                 }
+                break;
             case 17:
+                System.out.println(cell.getNumericCellValue());
                 switch (cell.getCachedFormulaResultTypeEnum()) {
                     case ERROR:
                         form.setMeal(form.getMeal() + 0);
@@ -225,6 +372,7 @@ public class Excel {
                         }
                         break;
                 }
+                break;
             case 18:
                 switch (cell.getCachedFormulaResultTypeEnum()) {
                     case ERROR:
@@ -238,6 +386,7 @@ public class Excel {
                         }
                         break;
                 }
+                break;
             case 19:
                 switch (cell.getCellTypeEnum()) {
                     case NUMERIC:
@@ -246,13 +395,21 @@ public class Excel {
                     case STRING:
                         break;
                 }
+                break;
             case 20:
                 form.setCheckDay(false);
                 form.setCheckMeal(false);
                 form.setCheckOTDays(false);
                 form.setCheckTransportation(false);
                 form.setCheckShiftAllowance(false);
+                break;
         }
     }
-    
+
+    public static void initRowMap(HashMap<String, Integer> rowNums) {
+        rowNums.put("OT", 1);
+        rowNums.put("SA", 1);
+        rowNums.put("AHS", 1);
+        rowNums.put("ED", 1);
+    }
 }
