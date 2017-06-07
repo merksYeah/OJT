@@ -38,6 +38,70 @@ public class Form {
     private double countShiftAllowance;
     private double countOTDays;
     private double countDay;
+    private boolean checkMeal;
+    private boolean checkTransportation;
+    private boolean checkShiftAllowance;
+    private boolean checkOTDays;
+    private boolean checkDay;
+    private String hack;
+    private String formVersion;
+
+    public String getFormVersion() {
+        return formVersion;
+    }
+
+    public void setFormVersion(String formVersion) {
+        this.formVersion = formVersion;
+    }
+    
+
+    public String getHack() {
+        return hack;
+    }
+
+    public void setHack(String hack) {
+        this.hack = hack;
+    }
+
+    public boolean isCheckMeal() {
+        return checkMeal;
+    }
+
+    public void setCheckMeal(boolean checkMeal) {
+        this.checkMeal = checkMeal;
+    }
+
+    public boolean isCheckTransportation() {
+        return checkTransportation;
+    }
+
+    public void setCheckTransportation(boolean checkTransportation) {
+        this.checkTransportation = checkTransportation;
+    }
+
+    public boolean isCheckShiftAllowance() {
+        return checkShiftAllowance;
+    }
+
+    public void setCheckShiftAllowance(boolean checkShiftAllowance) {
+        this.checkShiftAllowance = checkShiftAllowance;
+    }
+
+    public boolean isCheckOTDays() {
+        return checkOTDays;
+    }
+
+    public void setCheckOTDays(boolean checkOTDays) {
+        this.checkOTDays = checkOTDays;
+    }
+
+    public boolean isCheckDay() {
+        return checkDay;
+    }
+
+    public void setCheckDay(boolean checkDay) {
+        this.checkDay = checkDay;
+    }
 
     public String getType() {
         return type;

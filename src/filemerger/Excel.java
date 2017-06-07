@@ -27,7 +27,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
  * @author mmercado
  */
 public class Excel {
-
+    
     public static XSSFWorkbook getSummaryFile() {
         String[] headers = {"ID Number", "Last Name", "First Name", "Position",
             "Month", "Year", "Department", "Product", "Date Submitted",
@@ -39,7 +39,7 @@ public class Excel {
             "Count OT Days", "Count Day", "", "", "Form Version", "", "ID",
             "OT Weekday", "OT Sunday", "OT SH", "OT LH", "ND", "Count SA", "SA",
             "Count M+T", "M+T"};
-
+        
         String[] edHeaders = {"ID Number", "Last Name", "First Name", "Position",
             "Month", "Year", "Department", "Product",
             "Date Submitted", "Approving Manager",
@@ -47,7 +47,7 @@ public class Excel {
             "Form Version", "", "ID Number", "Last Name", "First Name",
             "Position	Month", "Year", "Department", "Product",
             "Count Day"};
-
+        
         XSSFWorkbook workbook = new XSSFWorkbook();
         workbook.createSheet("OT");
         workbook.createSheet("SA");
@@ -71,12 +71,12 @@ public class Excel {
                     sheet.setColumnWidth(j, 6000);
                 }
             }
-
+            
         }
         return workbook;
-
+        
     }
-
+    
     public static ArrayList<Form> getClaimsData(HashMap<String, String> passwords, File[] files) {
         ArrayList<Form> forms = new ArrayList();
         for (File file : files) {
@@ -87,14 +87,24 @@ public class Excel {
                 form.setId(id);
                 Workbook workbook = WorkbookFactory.create(file, passwords.get(id));
                 Sheet firstSheet = workbook.getSheetAt(0);
+                if(firstSheet.getProtect()){
+                    form.setHack("ok");
+                }else{
+                    form.setHack("tampered");
+                }
                 setPersonalCells(form, workbook);
                 for (int rowIndex = 18; rowIndex < 49; rowIndex++) {
                     Row row = firstSheet.getRow(rowIndex);
+                    if (row.getCell(1).getNumericCellValue() > 0) {
+                        form.setCountDay(form.getCountDay() + 1);
+                    }
                     for (int cellIndex = 9; cellIndex < 21; cellIndex++) {
                         setNumericCells(cellIndex, row.getCell(cellIndex), form);
                     }
                 }
-
+                Row row = firstSheet.getRow(51);
+                String formVersion = row.getCell(1).getStringCellValue();
+                form.setFormVersion(formVersion.substring(formVersion.length() - 10));
             } catch (IOException | InvalidFormatException | EncryptedDocumentException ex) {
                 System.out.println("hello");
             }
@@ -122,7 +132,7 @@ public class Excel {
         }
         setDateCells(row.getCell(17), form);
     }
-
+    
     public static void setDateCells(Cell cell, Form form) {
         DateFormat df = new SimpleDateFormat("MM-dd-yyyy");
         switch (cell.getCellTypeEnum()) {
@@ -142,23 +152,43 @@ public class Excel {
                 break;
         }
     }
-
+    
     public static void setNumericCells(int index, Cell cell, Form form) {
         switch (index) {
             case 9:
                 form.setWeekDay(form.getWeekDay() + cell.getNumericCellValue());
+                if (cell.getNumericCellValue() > 0 && !form.isCheckOTDays()) {
+                    form.setCountOTDays(form.getCountOTDays() + 1);
+                    form.setCheckOTDays(true);
+                }
                 break;
             case 10:
                 form.setSaturday(form.getSaturday() + cell.getNumericCellValue());
+                if (cell.getNumericCellValue() > 0 && !form.isCheckOTDays()) {
+                    form.setCountOTDays(form.getCountOTDays() + 1);
+                    form.setCheckOTDays(true);
+                }
                 break;
             case 11:
                 form.setRestDay(form.getRestDay() + cell.getNumericCellValue());
+                if (cell.getNumericCellValue() > 0 && !form.isCheckOTDays()) {
+                    form.setCountOTDays(form.getCountOTDays() + 1);
+                    form.setCheckOTDays(true);
+                }
                 break;
             case 12:
                 form.setNoneWorkingDay(form.getNoneWorkingDay() + cell.getNumericCellValue());
+                if (cell.getNumericCellValue() > 0 && !form.isCheckOTDays()) {
+                    form.setCountOTDays(form.getCountOTDays() + 1);
+                    form.setCheckOTDays(true);
+                }
                 break;
             case 13:
                 form.setLegalHoliday(form.getLegalHoliday() + cell.getNumericCellValue());
+                if (cell.getNumericCellValue() > 0 && !form.isCheckOTDays()) {
+                    form.setCountOTDays(form.getCountOTDays() + 1);
+                    form.setCheckOTDays(true);
+                }
                 break;
             case 15:
                 switch (cell.getCachedFormulaResultTypeEnum()) {
@@ -167,6 +197,10 @@ public class Excel {
                         break;
                     case NUMERIC:
                         form.setShiftAllowance(form.getShiftAllowance() + cell.getNumericCellValue());
+                        if (cell.getNumericCellValue() > 0 && !form.isCheckShiftAllowance()) {
+                            form.setCountMeal(form.getCountShiftAllowance() + 1);
+                            form.setCheckMeal(true);
+                        }
                         break;
                 }
             case 16:
@@ -185,6 +219,10 @@ public class Excel {
                         break;
                     case NUMERIC:
                         form.setMeal(form.getMeal() + cell.getNumericCellValue());
+                        if (cell.getNumericCellValue() > 0 && !form.isCheckMeal()) {
+                            form.setCountMeal(form.getCountMeal() + 1);
+                            form.setCheckMeal(true);
+                        }
                         break;
                 }
             case 18:
@@ -194,8 +232,27 @@ public class Excel {
                         break;
                     case NUMERIC:
                         form.setTransportation(form.getTransportation() + cell.getNumericCellValue());
+                        if (cell.getNumericCellValue() > 0 && form.isCheckMeal() && !form.isCheckTransportation()) {
+                            form.setCountTransportation(form.getCountTransportation() + 1);
+                            form.setCheckTransportation(true);
+                        }
                         break;
                 }
+            case 19:
+                switch (cell.getCellTypeEnum()) {
+                    case NUMERIC:
+                        form.setOthers(form.getOthers() + cell.getNumericCellValue());
+                        break;
+                    case STRING:
+                        break;
+                }
+            case 20:
+                form.setCheckDay(false);
+                form.setCheckMeal(false);
+                form.setCheckOTDays(false);
+                form.setCheckTransportation(false);
+                form.setCheckShiftAllowance(false);
         }
     }
+    
 }
