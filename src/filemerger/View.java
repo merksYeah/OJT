@@ -42,6 +42,7 @@ public class View {
         selectPane = new JTextPane();
         scrollPane = new JScrollPane();
         progressBar = new JProgressBar();
+        progressBar.setStringPainted(true);
 
         GroupLayout layout = new GroupLayout(frame.getContentPane());
         layout.setHorizontalGroup(

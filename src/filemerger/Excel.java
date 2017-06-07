@@ -14,6 +14,7 @@ import java.util.HashMap;
 import org.apache.poi.EncryptedDocumentException;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -87,12 +88,11 @@ public class Excel {
                 Workbook workbook = WorkbookFactory.create(file, passwords.get(id));
                 Sheet firstSheet = workbook.getSheetAt(0);
                 setPersonalCells(form, workbook);
-                for (int i = 18; i < 49; i++) {
-                    Row row = firstSheet.getRow(i);
-                    System.out.println(row.getCell(9).getNumericCellValue());
-                    /*for(int j = 9; j < 21; j++){
-                        
-                    }*/
+                for (int rowIndex = 18; rowIndex < 49; rowIndex++) {
+                    Row row = firstSheet.getRow(rowIndex);
+                    for (int cellIndex = 9; cellIndex < 21; cellIndex++) {
+                        setNumericCells(cellIndex, row.getCell(cellIndex), form);
+                    }
                 }
 
             } catch (IOException | InvalidFormatException | EncryptedDocumentException ex) {
@@ -142,12 +142,60 @@ public class Excel {
                 break;
         }
     }
-    
-    public static void setNumericCells(int index){
-        switch(index){
+
+    public static void setNumericCells(int index, Cell cell, Form form) {
+        switch (index) {
             case 9:
-                
+                form.setWeekDay(form.getWeekDay() + cell.getNumericCellValue());
+                break;
+            case 10:
+                form.setSaturday(form.getSaturday() + cell.getNumericCellValue());
+                break;
+            case 11:
+                form.setRestDay(form.getRestDay() + cell.getNumericCellValue());
+                break;
+            case 12:
+                form.setNoneWorkingDay(form.getNoneWorkingDay() + cell.getNumericCellValue());
+                break;
+            case 13:
+                form.setLegalHoliday(form.getLegalHoliday() + cell.getNumericCellValue());
+                break;
+            case 15:
+                switch (cell.getCachedFormulaResultTypeEnum()) {
+                    case ERROR:
+                        form.setShiftAllowance(form.getShiftAllowance() + 0);
+                        break;
+                    case NUMERIC:
+                        form.setShiftAllowance(form.getShiftAllowance() + cell.getNumericCellValue());
+                        break;
+                }
+            case 16:
+                switch (cell.getCachedFormulaResultTypeEnum()) {
+                    case ERROR:
+                        form.setNightDifferential(form.getNightDifferential() + 0);
+                        break;
+                    case NUMERIC:
+                        form.setNightDifferential(form.getNightDifferential() + cell.getNumericCellValue());
+                        break;
+                }
+            case 17:
+                switch (cell.getCachedFormulaResultTypeEnum()) {
+                    case ERROR:
+                        form.setMeal(form.getMeal() + 0);
+                        break;
+                    case NUMERIC:
+                        form.setMeal(form.getMeal() + cell.getNumericCellValue());
+                        break;
+                }
+            case 18:
+                switch (cell.getCachedFormulaResultTypeEnum()) {
+                    case ERROR:
+                        form.setTransportation(form.getTransportation() + 0);
+                        break;
+                    case NUMERIC:
+                        form.setTransportation(form.getTransportation() + cell.getNumericCellValue());
+                        break;
+                }
         }
     }
-
 }

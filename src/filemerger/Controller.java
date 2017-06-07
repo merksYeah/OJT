@@ -11,14 +11,13 @@ package filemerger;
  */
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
+import javax.swing.JProgressBar;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.StyledDocument;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -104,6 +103,6 @@ public class Controller {
     private void extractFiles() {
         XSSFWorkbook workbook = Excel.getSummaryFile();
         Excel.getClaimsData(model.getPasswords(), model.getFiles());
-       
+        
     }
 }
