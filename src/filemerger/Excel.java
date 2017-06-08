@@ -5,9 +5,11 @@
  */
 package filemerger;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -16,6 +18,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import static javax.script.ScriptEngine.FILENAME;
 import org.apache.poi.EncryptedDocumentException;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.Cell;
@@ -54,16 +57,11 @@ public class Excel {
 
         XSSFWorkbook workbook = new XSSFWorkbook();
 
-        workbook.createSheet(
-                "OT");
-        workbook.createSheet(
-                "SA");
-        workbook.createSheet(
-                "AHS");
-        workbook.createSheet(
-                "ED");
-        for (int i = 0;
-                i < 4; i++) {
+        workbook.createSheet("OT");
+        workbook.createSheet("SA");
+        workbook.createSheet("AHS");
+        workbook.createSheet("ED");
+        for (int i = 0; i < 4; i++) {
             XSSFSheet sheet = workbook.getSheetAt(i);
             //if sheet is not ED sheet
             if (i < 3) {
@@ -87,9 +85,13 @@ public class Excel {
 
     }
 
-    public static ArrayList<Form> getClaimsData(HashMap<String, String> passwords, File[] files) {
+    public static ArrayList<Form> getClaimsData(Model model, View view) {
         ArrayList<Form> forms = new ArrayList();
-        for (File file : files) {
+        int progress = 1;
+        view.getProgressBar().setMaximum(model.getFiles().length);
+        for (File file : model.getFiles()) {
+            view.getProgressBar().setValue(progress);
+            view.getProgressBar().update(view.getProgressBar().getGraphics());
             try {
                 Form form = new Form();
                 String id = file.getName();
@@ -97,7 +99,7 @@ public class Excel {
                 id = id.substring(id.length() - 5);
                 form.setType(file.getName().substring(0, 3).trim());
                 form.setId(id);
-                Workbook workbook = WorkbookFactory.create(file, passwords.get(id));
+                Workbook workbook = WorkbookFactory.create(file, model.getPasswords().get(id));
                 Sheet firstSheet = workbook.getSheetAt(0);
                 if (firstSheet.getProtect()) {
                     form.setHack("ok");
@@ -127,18 +129,26 @@ public class Excel {
                 Row row = firstSheet.getRow(51);
                 String formVersion = row.getCell(1).getStringCellValue();
                 form.setFormVersion(formVersion.substring(formVersion.length() - 10));
+                if(!row.getCell(21).getStringCellValue().equals("")){
+                    form.setGenerated("AUTO");
+                }else{
+                    form.setGenerated("MANUAL");
+                }
                 forms.add(form);
                 workbook.close();
+                progress++;
             } catch (EncryptedDocumentException ex) {
-                System.out.println("hello");
+                model.getErrors().add(file.getName() + " supplied password is invalid");
+                progress++;
 
             } catch (IOException ex) {
-                Logger.getLogger(Excel.class
-                        .getName()).log(Level.SEVERE, null, ex);
+                model.getErrors().add(file.getName() + " has been set to read only");
+                progress++;
 
             } catch (InvalidFormatException ex) {
                 Logger.getLogger(Excel.class
                         .getName()).log(Level.SEVERE, null, ex);
+                progress++;
             }
         }
         return forms;
@@ -151,11 +161,14 @@ public class Excel {
         FileOutputStream fileOutputStream = new FileOutputStream(filename + ".xlsx");
         HashMap<String, Integer> rowNums = new HashMap();
         initRowMap(rowNums);
+        view.getProgressBar().setValue(0);
+        view.getProgressBar().update(view.getProgressBar().getGraphics());
         view.getProgressBar().setMinimum(0);
         view.getProgressBar().setMaximum(forms.size());
-        int progress = 0;
+        int progress = 1;
         for (Form form : forms) {
             view.getProgressBar().setValue(progress);
+            view.getProgressBar().update(view.getProgressBar().getGraphics());
             Sheet sheet = workbook.getSheet(form.getType());
             Row row = sheet.createRow(rowNums.get(form.getType()));
             int rowNum = rowNums.get(form.getType());
@@ -173,7 +186,7 @@ public class Excel {
                 row.createCell(cellNum++).setCellValue(form.getApprovingManager());
                 row.createCell(cellNum++).setCellValue(form.getDateApproved());
                 row.createCell(cellNum++).setCellValue(form.getCountDay());
-                row.createCell(cellNum++).setCellValue("hello");
+                row.createCell(cellNum++).setCellValue(form.getGenerated());
                 row.createCell(cellNum++).setCellValue(form.getHack());
                 row.createCell(cellNum++).setCellValue(form.getFormVersion());
                 row.createCell(cellNum++).setCellFormula("A" + (rowNum + 1));
@@ -214,7 +227,7 @@ public class Excel {
                 row.createCell(cellNum++).setCellValue(form.getCountShiftAllowance());
                 row.createCell(cellNum++).setCellValue(form.getCountOTDays());
                 row.createCell(cellNum++).setCellValue(form.getCountDay());
-                row.createCell(cellNum++).setCellValue("hello");
+                row.createCell(cellNum++).setCellValue(form.getGenerated());
                 row.createCell(cellNum++).setCellValue(form.getHack());
                 row.createCell(cellNum++).setCellValue(form.getFormVersion());
                 cellNum++;
@@ -359,7 +372,6 @@ public class Excel {
                 }
                 break;
             case 17:
-                System.out.println(cell.getNumericCellValue());
                 switch (cell.getCachedFormulaResultTypeEnum()) {
                     case ERROR:
                         form.setMeal(form.getMeal() + 0);
@@ -411,5 +423,44 @@ public class Excel {
         rowNums.put("SA", 1);
         rowNums.put("AHS", 1);
         rowNums.put("ED", 1);
+    }
+
+    public static void writeErrorToFile(ArrayList<String> errors) throws IOException {
+        BufferedWriter bw = null;
+        FileWriter fw = null;
+
+        try {
+
+            DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HHmmss");
+            Date date = new Date();
+            String timestamp = dateFormat.format(date);
+            File file = new File("ErrorLog" + timestamp  + ".txt");
+
+            // if file doesnt exists, then create it
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+
+            // true = append file
+            fw = new FileWriter(file.getAbsoluteFile(), true);
+            bw = new BufferedWriter(fw);
+            for (String error : errors) {
+                  bw.write(error);
+                  bw.newLine();
+            }
+          
+
+            System.out.println("Done");
+
+        } catch (IOException e) {
+        } finally {
+
+            if (bw != null) {
+                bw.close();
+            }
+            if (fw != null) {
+                fw.close();
+            }
+        }
     }
 }

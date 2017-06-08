@@ -103,11 +103,32 @@ public class Controller {
     private void extractFiles() {
         try {
             XSSFWorkbook summaryWorkbook = Excel.getSummaryFile();
-            model.setForms(Excel.getClaimsData(model.getPasswords(), model.getFiles()));
-            Excel.createSummaryFile(summaryWorkbook,model.getForms(),view);
+            model.setForms(Excel.getClaimsData(model, view));
+            if (model.getErrors().size() > 0) {
+                Excel.writeErrorToFile(model.getErrors());
+                JOptionPane.showMessageDialog(view.getFrame(),
+                        "Please see generated error log for details",
+                        "Errors Encountered",
+                        JOptionPane.ERROR_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(view.getFrame(),
+                        "All data was extracted press ok to generate summary file",
+                        "Data Extraction Completed",
+                        JOptionPane.INFORMATION_MESSAGE);
+            }
+            Excel.createSummaryFile(summaryWorkbook, model.getForms(), view);
+            JOptionPane.showMessageDialog(view.getFrame(),
+                    "Summary File has been generated",
+                    "Processing Done",
+                    JOptionPane.INFORMATION_MESSAGE);
+            view.getProgressBar().setValue(0);
+            view.getProgressBar().update(view.getProgressBar().getGraphics());
+            view.getBtnExtract().setEnabled(false);
+            view.getSelectPane().setText("");
+            model.getErrors().clear();
         } catch (IOException ex) {
             Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
+
     }
 }

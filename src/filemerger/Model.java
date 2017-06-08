@@ -18,6 +18,15 @@ public class Model {
     private HashMap<String, String> passwords;
     private File[] files;
     private ArrayList<Form> forms;
+    private ArrayList<String> errors;
+
+    public ArrayList<String> getErrors() {
+        return errors;
+    }
+
+    public void setErrors(ArrayList<String> errors) {
+        this.errors = errors;
+    }
 
     public ArrayList<Form> getForms() {
         return forms;
@@ -26,7 +35,7 @@ public class Model {
     public void setForms(ArrayList<Form> forms) {
         this.forms = forms;
     }
-        
+
     public File[] getFiles() {
         return files;
     }
@@ -37,6 +46,7 @@ public class Model {
 
     public Model() {
         passwords = new HashMap();
+        errors = new ArrayList<>();
     }
 
     public HashMap<String, String> getPasswords() {

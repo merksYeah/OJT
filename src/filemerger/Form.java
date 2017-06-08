@@ -45,6 +45,15 @@ public class Form {
     private boolean checkDay;
     private String hack;
     private String formVersion;
+    private String generated;
+
+    public String getGenerated() {
+        return generated;
+    }
+
+    public void setGenerated(String generated) {
+        this.generated = generated;
+    }
 
     public String getFormVersion() {
         return formVersion;
@@ -53,7 +62,6 @@ public class Form {
     public void setFormVersion(String formVersion) {
         this.formVersion = formVersion;
     }
-    
 
     public String getHack() {
         return hack;
